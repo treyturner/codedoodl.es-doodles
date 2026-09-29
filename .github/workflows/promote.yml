@@ -1,0 +1,70 @@
+name: Promote tested artwork candidate
+on:
+  workflow_dispatch:
+    inputs:
+      candidate:
+        description: Candidate tag from a successful validation run
+        required: true
+        type: string
+      digest:
+        description: Immutable sha256 digest checked on the host
+        required: true
+        type: string
+      host_validated:
+        description: Confirm site, extension and mobile previews passed against this digest
+        required: true
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: codedoodles-assets-production-promotion
+  cancel-in-progress: false
+jobs:
+  promote:
+    if: github.ref == 'refs/heads/master' && inputs.host_validated
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .node-version
+      - name: Require candidate source in master
+        env:
+          CANDIDATE: ${{ inputs.candidate }}
+        shell: bash
+        run: |
+          [[ "$CANDIDATE" =~ ^candidate-([a-f0-9]{40})-[0-9]+-[0-9]+$ ]] || exit 1
+          git merge-base --is-ancestor "${BASH_REMATCH[1]}" HEAD
+      - uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4.0.0
+      - name: Require both registry credentials
+        env:
+          REFS_RAW: |
+            ghcr.io/${{ github.repository_owner }}/codedoodles-assets:latest
+            forgejo.treyturner.info/${{ github.repository_owner }}/codedoodles-assets:latest
+          GITHUB_TOKEN: ${{ github.token }}
+          FORGEJO_TOKEN: ${{ secrets.FORGEJO_REGISTRY_TOKEN }}
+        run: bash .github/actions/publish/check-credentials.sh
+      - uses: docker/login-action@c144859092e8e353f3e118b0b329679a62351c3e # v4.0.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ github.token }}
+      - uses: docker/login-action@c144859092e8e353f3e118b0b329679a62351c3e # v4.0.0
+        with:
+          registry: forgejo.treyturner.info
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.FORGEJO_REGISTRY_TOKEN }}
+      - name: Promote the verified digest without rebuilding
+        env:
+          OWNER: ${{ github.repository_owner }}
+          CANDIDATE: ${{ inputs.candidate }}
+          DIGEST: ${{ inputs.digest }}
+        run: bash scripts/promote-image.sh "${OWNER,,}" "$CANDIDATE" "$DIGEST" --apply

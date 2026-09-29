@@ -1,0 +1,12 @@
+services:
+  assets:
+    image: ${ASSETS_IMAGE:-codedoodles-assets:local}
+    platform: linux/amd64
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m,mode=1777
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    ports:
+      - "127.0.0.1:${ASSETS_PORT:-8080}:8080"
+    restart: unless-stopped

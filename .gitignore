@@ -1,0 +1,4 @@
+/build/
+/tests/artifacts/
+/tests/fixtures/
+/tests/node_modules/

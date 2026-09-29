@@ -1,0 +1,5 @@
+# Immutable merged clients; their source/tests are never modified by this suite.
+SITE_REPOSITORY=https://github.com/treyturner/codedoodl.es.git
+SITE_COMMIT=0d16ef3dc47a2422b5dda22072162556182e2e2f
+EXTENSION_REPOSITORY=https://github.com/treyturner/codedoodl.es-chrome-extension.git
+EXTENSION_COMMIT=07c59179401af63d0ad0a86ee73230443fda2d4e
