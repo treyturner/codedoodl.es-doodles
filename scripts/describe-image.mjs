@@ -14,7 +14,8 @@ while (manifest.manifests) {
 if (!manifest.layers?.every(layer => /gzip|zstd/.test(layer.mediaType))) throw new Error('Expected compressed OCI layers');
 let uncompressedLayerBytes = 0;
 for (const layer of manifest.layers) {
-  if (!layer.mediaType.endsWith('+gzip')) throw new Error('Size measurement currently expects gzip layers');
+  // Buildx --load may use Docker's .gzip media type instead of OCI's +gzip.
+  if (!/[.+]gzip$/.test(layer.mediaType)) throw new Error('Size measurement currently expects gzip layers');
   const child = spawn('tar', ['-xOf', archive, 'blobs/sha256/' + layer.digest.split(':')[1]], { stdio: ['ignore', 'pipe', 'inherit'] });
   const completion = new Promise((resolve, reject) => {
     child.on('error', reject);
