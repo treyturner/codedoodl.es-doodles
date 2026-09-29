@@ -85,7 +85,7 @@ export async function prepare(source, destination, epoch) {
     await utimes(path, date, date);
   }
   await stamp(destination);
-  return { sketches: published.size, files: inventory.sort((a, b) => a.path.localeCompare(b.path, 'en')) };
+  return { sourceDateEpoch: epoch, sketches: published.size, files: inventory.sort((a, b) => a.path.localeCompare(b.path, 'en')) };
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {

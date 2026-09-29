@@ -8,6 +8,7 @@ import { extname } from 'node:path';
 
 const base = 'http://assets:8080';
 const inventory = JSON.parse(readFileSync('/results/inventory.json'));
+const modified = new Date(inventory.sourceDateEpoch * 1000).toUTCString();
 function get(path, headers = {}, method = 'GET') {
   return new Promise((resolve, reject) => {
     const req = request(base + path, { method, headers, timeout: 15000 }, res => {
@@ -35,9 +36,11 @@ test('every packaged file serves unchanged identity bytes and its preserved gzip
       assert.equal(identity.headers['cache-control'], policy(path), path);
       assert.equal(identity.headers['access-control-allow-origin'], '*');
       assert.ok(identity.headers.etag && identity.headers['last-modified'], path);
+      assert.equal(identity.headers['last-modified'], modified, path);
       if (file.gzipBytes !== null) {
         const gzip = await get(path, { 'Accept-Encoding': 'gzip' });
         assert.equal(gzip.headers['content-encoding'], 'gzip', path);
+        assert.equal(gzip.headers['last-modified'], modified, path);
         assert.match(gzip.headers.vary, /Accept-Encoding/i, path);
         assert.equal(gzip.body.length, file.gzipBytes, path);
         assert.equal(createHash('sha256').update(gzip.body).digest('hex'), file.gzipSha256, path);
