@@ -1,0 +1,108 @@
+name: Validate and publish artwork candidate
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish the tested candidate to both registries (never changes latest)
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  validate:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 40
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .node-version
+      - name: Record source metadata
+        id: source
+        shell: bash
+        run: echo "epoch=$(git show -s --format=%ct HEAD)" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4.0.0
+      - name: Check credential validation and promotion guards
+        run: |
+          bash tests/publish/check-credentials.sh
+          node --test tests/publish/*.test.mjs
+      - name: Build candidate and run preparation tests
+        uses: docker/build-push-action@eb6512707bea5740b2608f2a43ece7bc543cb75b # v7.0.0
+        with:
+          context: .
+          platforms: linux/amd64
+          provenance: false
+          load: true
+          push: false
+          tags: codedoodles-assets:candidate-${{ github.sha }}
+          build-args: |
+            VCS_REF=${{ github.sha }}
+            SOURCE_DATE_EPOCH=${{ steps.source.outputs.epoch }}
+          cache-from: |
+            type=gha,scope=${{ github.ref_name }}
+            type=gha,scope=master
+          cache-to: type=gha,mode=max,scope=${{ github.ref_name }}
+      - name: Scan the runtime image
+        run: bash scripts/scan-image.sh codedoodles-assets:candidate-${{ github.sha }}
+      - name: Test HTTP, browsers, installed extension and runtime lifecycle
+        run: bash scripts/test-image.sh codedoodles-assets:candidate-${{ github.sha }}
+      - name: Audit the locked test dependencies
+        run: npm audit --prefix tests --audit-level=high
+      - name: Record candidate sizes and identity
+        run: bash scripts/describe-image.sh codedoodles-assets:candidate-${{ github.sha }}
+      - name: Save the tested image for offline host validation
+        shell: bash
+        run: |
+          docker image save codedoodles-assets:candidate-${{ github.sha }} | gzip -n > tests/artifacts/candidate-image.tar.gz
+          cd tests/artifacts
+          sha256sum candidate-image.tar.gz > candidate-image.tar.gz.sha256
+      - name: Publish exactly the tested image
+        if: >-
+          (github.event_name == 'push' && github.ref == 'refs/heads/master') ||
+          (github.event_name == 'workflow_dispatch' && inputs.publish)
+        uses: ./.github/actions/publish
+        with:
+          candidate-ref: codedoodles-assets:candidate-${{ github.sha }}
+          refs: |
+            ghcr.io/${{ github.repository_owner }}/codedoodles-assets:candidate-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+            forgejo.treyturner.info/${{ github.repository_owner }}/codedoodles-assets:candidate-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          github-token: ${{ github.token }}
+          forgejo-token: ${{ secrets.FORGEJO_REGISTRY_TOKEN }}
+      - name: Record matching registry digests
+        if: >-
+          (github.event_name == 'push' && github.ref == 'refs/heads/master') ||
+          (github.event_name == 'workflow_dispatch' && inputs.publish)
+        env:
+          OWNER: ${{ github.repository_owner }}
+          CANDIDATE: candidate-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+        shell: bash
+        run: |
+          : > tests/artifacts/candidate-digests.txt
+          for registry in ghcr.io forgejo.treyturner.info; do
+            repository="$registry/${OWNER,,}/codedoodles-assets"
+            digest="$(docker buildx imagetools inspect "$repository:$CANDIDATE" --format '{{json .Manifest}}' | jq -er '.digest')"
+            echo "$repository@$digest" | tee -a tests/artifacts/candidate-digests.txt
+          done
+          diff <(head -1 tests/artifacts/candidate-digests.txt | cut -d@ -f2) <(tail -1 tests/artifacts/candidate-digests.txt | cut -d@ -f2)
+          cat tests/artifacts/candidate-digests.txt >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        if: always()
+        with:
+          name: artwork-validation-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            tests/artifacts/
+            !tests/artifacts/certs/
+          if-no-files-found: warn
+          retention-days: 14

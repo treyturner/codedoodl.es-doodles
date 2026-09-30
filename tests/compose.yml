@@ -1,0 +1,40 @@
+services:
+  assets:
+    image: ${ASSETS_IMAGE:?Candidate required}
+    read_only: true
+    tmpfs: ['/tmp:rw,noexec,nosuid,size=16m,mode=1777']
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+  site:
+    image: ${SITE_IMAGE:?Pinned client required}
+    environment:
+      BASE_URL: https://doodles.treyturner.info
+      DOODLES_URL: https://doodle.treyturner.info
+      GOOGLE_ANALYTICS_CODE: ''
+      NODE_EXTRA_CA_CERTS: /certs/cert.pem
+    volumes:
+      - ${TEST_RESULTS_DIR:?}/certs:/certs:ro
+  tls:
+    image: ghcr.io/nginx/nginx-unprivileged:1.30.5-alpine-slim@sha256:e28dcf0a161ddcbf228c7364b4a14f9bad4763ae8f5317c437b896afa3df4b84
+    # Test-only TLS bridge; production TLS remains outside the asset image.
+    user: '0:0'
+    entrypoint: [nginx]
+    command: [-g, 'daemon off;']
+    volumes:
+      - ./tls.conf:/etc/nginx/nginx.conf:ro
+      - ${TEST_RESULTS_DIR:?}/certs:/certs:ro
+    networks:
+      default:
+        aliases: [doodle.treyturner.info, doodles.treyturner.info]
+  runner:
+    image: ${RUNNER_IMAGE:?Pinned test runner required}
+    shm_size: 1gb
+    environment:
+      CI: 'true'
+      NODE_EXTRA_CA_CERTS: /certs/cert.pem
+    volumes:
+      - ${TEST_RESULTS_DIR:?}:/results
+      - ${TEST_RESULTS_DIR:?}/certs:/certs:ro
+networks:
+  default:
+    internal: true

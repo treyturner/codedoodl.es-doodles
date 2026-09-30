@@ -1,0 +1,6 @@
+.git
+.github
+build
+tests/artifacts
+tests/fixtures
+**/node_modules
