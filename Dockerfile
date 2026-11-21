@@ -6,7 +6,7 @@ RUN node --test tests/unit/*.test.mjs
 ARG SOURCE_DATE_EPOCH
 RUN SOURCE_DATE_EPOCH="$SOURCE_DATE_EPOCH" node scripts/prepare.mjs /source "/prepared/$SOURCE_DATE_EPOCH" > /inventory.json
 
-FROM ghcr.io/nginx/nginx-unprivileged:1.30.5-alpine-slim@sha256:e28dcf0a161ddcbf228c7364b4a14f9bad4763ae8f5317c437b896afa3df4b84
+FROM ghcr.io/nginx/nginx-unprivileged:1.30.7-alpine-slim@sha256:8432c57ac86f178741af2b89948bd9087cb9df1c415bc1ab4d23735c4f0e3e61
 ARG VCS_REF
 ARG SOURCE_DATE_EPOCH
 LABEL org.opencontainers.image.title="codedoodles-assets" \
