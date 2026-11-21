@@ -15,7 +15,7 @@ services:
     volumes:
       - ${TEST_RESULTS_DIR:?}/certs:/certs:ro
   tls:
-    image: ghcr.io/nginx/nginx-unprivileged:1.30.5-alpine-slim@sha256:e28dcf0a161ddcbf228c7364b4a14f9bad4763ae8f5317c437b896afa3df4b84
+    image: ghcr.io/nginx/nginx-unprivileged:1.30.7-alpine-slim@sha256:8432c57ac86f178741af2b89948bd9087cb9df1c415bc1ab4d23735c4f0e3e61
     # Test-only TLS bridge; production TLS remains outside the asset image.
     user: '0:0'
     entrypoint: [nginx]

@@ -18,7 +18,7 @@ curl http://127.0.0.1:8080/health
 
 The wrapper supplies the source commit and its timestamp. Build from a clean
 checkout when recording a release. The multi-stage Dockerfile pins Node and
-unprivileged Nginx 1.30.5 Alpine slim by digest. The container runs as UID/GID
+unprivileged Nginx 1.30.7 Alpine slim by digest. The container runs as UID/GID
 101:101, accepts HTTP on port 8080, and works with a read-only filesystem and
 `/tmp` tmpfs. Logs go to stdout/stderr. Compose binds only loopback; the existing
 reverse proxy remains responsible for HTTPS.
