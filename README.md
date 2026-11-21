@@ -7,7 +7,7 @@ The `codedoodles-assets` image serves the 76 published sketches at the existing
 
 ## Build and run
 
-Requires Git, Docker with BuildKit and Compose, and Linux AMD64. Node 24.21.0 is
+Requires Git, Docker with BuildKit and Compose, and Linux AMD64. Node 26.13.1 is
 pinned for build/test tooling; the running server contains no Node runtime.
 
 ```sh
